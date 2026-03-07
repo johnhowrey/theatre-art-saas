@@ -54,6 +54,7 @@ export function OnboardingWizard() {
   const { currentStep, totalSteps, progress, isFirstStep, isLastStep, goToNext, goToPrev } =
     useMultiStepForm(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [data, setData] = useState<OnboardingData>({
     name: "",
@@ -89,21 +90,29 @@ export function OnboardingWizard() {
 
   async function handleSubmit() {
     setIsSubmitting(true);
-    const res = await fetch("/api/theaters", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...data,
-        seatingCapacity: data.seatingCapacity ? parseInt(data.seatingCapacity) : undefined,
-        tasteProfile: data.tasteProfile,
-        onboardingComplete: true,
-      }),
-    });
+    setError(null);
+    try {
+      const res = await fetch("/api/theaters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          seatingCapacity: data.seatingCapacity ? parseInt(data.seatingCapacity) : undefined,
+          tasteProfile: data.tasteProfile,
+          onboardingComplete: true,
+        }),
+      });
 
-    if (res.ok) {
-      router.push("/dashboard");
-      router.refresh();
-    } else {
+      if (res.ok) {
+        router.push("/dashboard");
+        router.refresh();
+      } else {
+        const body = await res.json().catch(() => null);
+        setError(body?.error ?? "Something went wrong. Please try again.");
+        setIsSubmitting(false);
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
       setIsSubmitting(false);
     }
   }
@@ -289,6 +298,12 @@ export function OnboardingWizard() {
             </>
           )}
         </CardContent>
+
+        {error && (
+          <div className="mx-6 mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
         <CardFooter className="flex justify-between">
           <Button variant="outline" onClick={goToPrev} disabled={isFirstStep}>
