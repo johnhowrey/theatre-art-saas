@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMultiStepForm } from "@/hooks/use-multi-step-form";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+const STORAGE_KEY = "stageart-onboarding";
 
 const STEP_TITLES = [
   "Theater Basics",
@@ -40,6 +42,21 @@ interface OnboardingData {
   tasteProfile: string[];
 }
 
+const DEFAULT_DATA: OnboardingData = {
+  name: "",
+  slug: "",
+  city: "",
+  state: "",
+  venueType: "",
+  seatingCapacity: "",
+  type: "SINGLE_SHOW",
+  equityStatus: "NON_EQUITY",
+  primaryColor: "#000000",
+  secondaryColor: "#666666",
+  fontPreference: "",
+  tasteProfile: [],
+};
+
 const TASTE_STYLES = [
   { id: "bold-modern", label: "Bold & Modern", description: "Clean lines, striking typography" },
   { id: "classic-elegant", label: "Classic & Elegant", description: "Refined, timeless aesthetics" },
@@ -49,6 +66,32 @@ const TASTE_STYLES = [
   { id: "vintage-retro", label: "Vintage & Retro", description: "Nostalgic, period-inspired looks" },
 ];
 
+function saveToStorage(data: OnboardingData) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+function loadFromStorage(): OnboardingData | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {
+    // localStorage unavailable
+  }
+  return null;
+}
+
+function clearStorage() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // localStorage unavailable
+  }
+}
+
 export function OnboardingWizard() {
   const router = useRouter();
   const { currentStep, totalSteps, progress, isFirstStep, isLastStep, goToNext, goToPrev } =
@@ -56,41 +99,45 @@ export function OnboardingWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [data, setData] = useState<OnboardingData>({
-    name: "",
-    slug: "",
-    city: "",
-    state: "",
-    venueType: "",
-    seatingCapacity: "",
-    type: "SINGLE_SHOW",
-    equityStatus: "NON_EQUITY",
-    primaryColor: "#000000",
-    secondaryColor: "#666666",
-    fontPreference: "",
-    tasteProfile: [],
-  });
+  const [data, setData] = useState<OnboardingData>(DEFAULT_DATA);
+
+  // Restore saved data on mount (e.g. after returning from sign-up)
+  useEffect(() => {
+    const saved = loadFromStorage();
+    if (saved) setData(saved);
+  }, []);
 
   function updateField<K extends keyof OnboardingData>(field: K, value: OnboardingData[K]) {
-    setData((prev) => ({ ...prev, [field]: value }));
-    if (field === "name") {
-      const slug = (value as string).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      setData((prev) => ({ ...prev, slug }));
-    }
+    setData((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (field === "name") {
+        updated.slug = (value as string).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      }
+      saveToStorage(updated);
+      return updated;
+    });
   }
 
   function toggleTaste(id: string) {
-    setData((prev) => ({
-      ...prev,
-      tasteProfile: prev.tasteProfile.includes(id)
-        ? prev.tasteProfile.filter((t) => t !== id)
-        : [...prev.tasteProfile, id],
-    }));
+    setData((prev) => {
+      const updated = {
+        ...prev,
+        tasteProfile: prev.tasteProfile.includes(id)
+          ? prev.tasteProfile.filter((t) => t !== id)
+          : [...prev.tasteProfile, id],
+      };
+      saveToStorage(updated);
+      return updated;
+    });
   }
 
   async function handleSubmit() {
     setIsSubmitting(true);
     setError(null);
+
+    // Save data before attempting submit so it survives a redirect
+    saveToStorage(data);
+
     try {
       const res = await fetch("/api/theaters", {
         method: "POST",
@@ -104,10 +151,12 @@ export function OnboardingWizard() {
       });
 
       if (res.ok) {
+        clearStorage();
         router.push("/dashboard");
         router.refresh();
       } else if (res.status === 401) {
-        router.push("/sign-in?callbackUrl=/onboarding");
+        // Not signed in — send them to create an account, then come back
+        router.push("/sign-up?callbackUrl=/onboarding");
       } else {
         const body = await res.json().catch(() => null);
         setError(body?.error ?? "Something went wrong. Please try again.");

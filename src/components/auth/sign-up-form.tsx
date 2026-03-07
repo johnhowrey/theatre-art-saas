@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +15,8 @@ import Link from "next/link";
 
 export function SignUpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/onboarding";
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,7 +58,7 @@ export function SignUpForm() {
       return;
     }
 
-    router.push("/onboarding");
+    router.push(callbackUrl);
     router.refresh();
   }
 
@@ -64,13 +66,17 @@ export function SignUpForm() {
     <Card>
       <CardHeader>
         <CardTitle>Create Account</CardTitle>
-        <CardDescription>Get started with StageArt for your theater</CardDescription>
+        <CardDescription>
+          {callbackUrl === "/onboarding"
+            ? "Create an account to save your theater setup"
+            : "Get started with StageArt for your theater"}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button
           variant="outline"
           className="w-full"
-          onClick={() => signIn("google", { callbackUrl: "/onboarding" })}
+          onClick={() => signIn("google", { callbackUrl })}
           disabled={isLoading}
         >
           Continue with Google
