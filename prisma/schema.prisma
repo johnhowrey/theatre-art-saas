@@ -1,0 +1,392 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ──────────────────────────────────────
+// Auth.js required models
+// ──────────────────────────────────────
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String          @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  memberships   TheaterMember[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ──────────────────────────────────────
+// Theater & Organization
+// ──────────────────────────────────────
+
+enum TheaterType {
+  SINGLE_SHOW
+  SEASON
+}
+
+enum EquityStatus {
+  NON_EQUITY
+  SPT
+  LORT
+  OTHER_EQUITY
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Theater {
+  id                 String        @id @default(cuid())
+  name               String
+  slug               String        @unique
+  type               TheaterType   @default(SINGLE_SHOW)
+  equityStatus       EquityStatus  @default(NON_EQUITY)
+  city               String?
+  state              String?
+  venueType          String?
+  seatingCapacity    Int?
+  logoUrl            String?
+  primaryColor       String?
+  secondaryColor     String?
+  fontPreference     String?
+  brandGuideUrl      String?
+  tasteProfile       Json?
+  onboardingComplete Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  members            TheaterMember[]
+  shows              Show[]
+  seasons            Season[]
+  subscription       Subscription?
+  creditBalance      CreditBalance?
+}
+
+model TheaterMember {
+  id        String     @id @default(cuid())
+  userId    String
+  theaterId String
+  role      MemberRole @default(MEMBER)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theater   Theater    @relation(fields: [theaterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, theaterId])
+  @@index([theaterId])
+}
+
+// ──────────────────────────────────────
+// Seasons
+// ──────────────────────────────────────
+
+model Season {
+  id          String    @id @default(cuid())
+  theaterId   String
+  name        String
+  theme       String?
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  theater     Theater   @relation(fields: [theaterId], references: [id], onDelete: Cascade)
+  shows       Show[]
+
+  @@index([theaterId])
+}
+
+// ──────────────────────────────────────
+// Shows & Licensing
+// ──────────────────────────────────────
+
+enum ShowType {
+  MUSICAL
+  PLAY
+  OPERA
+  BALLET
+  REVUE
+  OTHER
+}
+
+enum ShowStatus {
+  DRAFT
+  IN_PROGRESS
+  ARTWORK_READY
+  CAMPAIGN_ACTIVE
+  COMPLETED
+}
+
+model Show {
+  id                String         @id @default(cuid())
+  theaterId         String
+  seasonId          String?
+  title             String
+  showType          ShowType       @default(MUSICAL)
+  playwright        String?
+  composer          String?
+  lyricist          String?
+  description       String?
+  tones             String[]
+  era               String?
+  genres            String[]
+  openingDate       DateTime?
+  closingDate       DateTime?
+  status            ShowStatus     @default(DRAFT)
+  creativeDirection Json?
+  licensedTitleId   String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  theater           Theater        @relation(fields: [theaterId], references: [id], onDelete: Cascade)
+  season            Season?        @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  licensedTitle     LicensedTitle? @relation(fields: [licensedTitleId], references: [id])
+  artProjects       ArtProject[]
+  campaigns         Campaign[]
+
+  @@index([theaterId])
+  @@index([seasonId])
+}
+
+model LicensingHouse {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  website        String?
+  creditTemplate String?
+  artworkPolicy  String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  titles         LicensedTitle[]
+}
+
+model LicensedTitle {
+  id                  String         @id @default(cuid())
+  licensingHouseId    String
+  title               String
+  creditText          String?
+  artworkRestrictions Boolean        @default(false)
+  requiredLogo        Boolean        @default(false)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  licensingHouse      LicensingHouse @relation(fields: [licensingHouseId], references: [id], onDelete: Cascade)
+  shows               Show[]
+
+  @@index([licensingHouseId])
+  @@index([title])
+}
+
+// ──────────────────────────────────────
+// Art Projects & Templates
+// ──────────────────────────────────────
+
+enum ArtTier {
+  FREE
+  PAID
+  PREMIUM
+}
+
+enum GenerationStatus {
+  PENDING
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+model ArtProject {
+  id         String               @id @default(cuid())
+  showId     String
+  templateId String?
+  artTier    ArtTier              @default(FREE)
+  status     GenerationStatus     @default(PENDING)
+  prompt     String?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  show       Show                 @relation(fields: [showId], references: [id], onDelete: Cascade)
+  template   TypographicTemplate? @relation(fields: [templateId], references: [id])
+  assets     GeneratedAsset[]
+
+  @@index([showId])
+}
+
+model GeneratedAsset {
+  id           String     @id @default(cuid())
+  artProjectId String
+  url          String
+  format       String
+  width        Int
+  height       Int
+  fileSize     Int?
+  createdAt    DateTime   @default(now())
+  artProject   ArtProject @relation(fields: [artProjectId], references: [id], onDelete: Cascade)
+
+  @@index([artProjectId])
+}
+
+model TypographicTemplate {
+  id           String       @id @default(cuid())
+  name         String
+  description  String?
+  previewUrl   String?
+  thumbnailUrl String?
+  layoutData   Json
+  fontFamily   String
+  colorScheme  Json
+  showTypes    ShowType[]
+  tones        String[]
+  eras         String[]
+  styles       String[]
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  artProjects  ArtProject[]
+
+  @@index([isActive])
+}
+
+// ──────────────────────────────────────
+// Campaigns
+// ──────────────────────────────────────
+
+enum CampaignType {
+  DIGITAL
+  PRINT
+  DIGITAL_PRINT
+  ADDON
+}
+
+model Campaign {
+  id        String          @id @default(cuid())
+  showId    String
+  type      CampaignType
+  name      String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  show      Show            @relation(fields: [showId], references: [id], onDelete: Cascade)
+  assets    CampaignAsset[]
+
+  @@index([showId])
+}
+
+model CampaignAsset {
+  id         String   @id @default(cuid())
+  campaignId String
+  name       String
+  width      Int
+  height     Int
+  unit       String   @default("px")
+  url        String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+}
+
+// ──────────────────────────────────────
+// Billing & Credits
+// ──────────────────────────────────────
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  theaterId            String             @unique
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  tier                 SubscriptionTier   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  theater              Theater            @relation(fields: [theaterId], references: [id], onDelete: Cascade)
+}
+
+model CreditBalance {
+  id           String              @id @default(cuid())
+  theaterId    String              @unique
+  balance      Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  theater      Theater             @relation(fields: [theaterId], references: [id], onDelete: Cascade)
+  transactions CreditTransaction[]
+}
+
+enum CreditTransactionType {
+  PURCHASE
+  USAGE
+  REFUND
+  BONUS
+  SUBSCRIPTION_GRANT
+}
+
+model CreditTransaction {
+  id              String                @id @default(cuid())
+  creditBalanceId String
+  type            CreditTransactionType
+  amount          Int
+  description     String?
+  stripePaymentId String?
+  createdAt       DateTime              @default(now())
+  creditBalance   CreditBalance         @relation(fields: [creditBalanceId], references: [id], onDelete: Cascade)
+
+  @@index([creditBalanceId])
+}

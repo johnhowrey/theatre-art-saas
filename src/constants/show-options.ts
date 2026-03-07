@@ -1,0 +1,61 @@
+export const SHOW_TYPES = [
+  { value: "MUSICAL", label: "Musical" },
+  { value: "PLAY", label: "Play" },
+  { value: "OPERA", label: "Opera" },
+  { value: "BALLET", label: "Ballet" },
+  { value: "REVUE", label: "Revue" },
+  { value: "OTHER", label: "Other" },
+] as const;
+
+export const TONES = [
+  "Dramatic",
+  "Comic",
+  "Dark",
+  "Whimsical",
+  "Romantic",
+  "Suspenseful",
+  "Uplifting",
+  "Melancholic",
+  "Satirical",
+  "Absurdist",
+  "Nostalgic",
+  "Energetic",
+  "Intimate",
+  "Epic",
+] as const;
+
+export const ERAS = [
+  "Contemporary",
+  "1990s",
+  "1980s",
+  "1970s",
+  "1960s",
+  "1950s",
+  "1940s",
+  "1930s",
+  "1920s",
+  "Turn of Century",
+  "Victorian",
+  "Renaissance",
+  "Medieval",
+  "Ancient",
+  "Fantasy/Timeless",
+] as const;
+
+export const GENRES = [
+  "Comedy",
+  "Drama",
+  "Thriller",
+  "Romance",
+  "Fantasy",
+  "Historical",
+  "Biographical",
+  "Farce",
+  "Tragedy",
+  "Mystery",
+  "Family",
+  "Holiday",
+  "Jukebox",
+  "Rock Musical",
+  "Cabaret",
+] as const;
