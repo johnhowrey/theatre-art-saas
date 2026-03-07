@@ -1,0 +1,30 @@
+name: theatre-art-saas
+region: nyc
+services:
+  - name: web
+    github:
+      repo: johnhowrey/theatre-art-saas
+      branch: claude/setup-project-1vG2L
+      deploy_on_push: true
+    build_command: npx prisma generate && npm run build
+    run_command: npm start
+    environment_slug: node-js
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    http_port: 3000
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_AND_BUILD_TIME
+        value: "${db.DATABASE_URL}"
+      - key: AUTH_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+        value: "change-me-to-a-real-secret"
+      - key: NEXT_PUBLIC_APP_URL
+        scope: RUN_AND_BUILD_TIME
+        value: "${APP_URL}"
+databases:
+  - name: db
+    engine: PG
+    production: false
+    version: "16"
