@@ -106,6 +106,8 @@ export function OnboardingWizard() {
       if (res.ok) {
         router.push("/dashboard");
         router.refresh();
+      } else if (res.status === 401) {
+        router.push("/sign-in?callbackUrl=/onboarding");
       } else {
         const body = await res.json().catch(() => null);
         setError(body?.error ?? "Something went wrong. Please try again.");

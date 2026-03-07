@@ -6,7 +6,7 @@ import { theaterCreateSchema } from "@/lib/validators/theater";
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Your session has expired. Please sign in again to continue." }, { status: 401 });
   }
 
   const theaters = await db.theater.findMany({
@@ -20,7 +20,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Your session has expired. Please sign in again to continue." }, { status: 401 });
   }
 
   try {
@@ -28,12 +28,13 @@ export async function POST(req: Request) {
     const parsed = theaterCreateSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+      const messages = parsed.error.issues.map((i) => i.message);
+      return NextResponse.json({ error: `Please fix the following: ${messages.join(", ")}` }, { status: 400 });
     }
 
     const existingSlug = await db.theater.findUnique({ where: { slug: parsed.data.slug } });
     if (existingSlug) {
-      return NextResponse.json({ error: "Slug already taken" }, { status: 409 });
+      return NextResponse.json({ error: `The URL slug "${parsed.data.slug}" is already taken. Please go back and choose a different one.` }, { status: 409 });
     }
 
     const theater = await db.theater.create({
@@ -55,6 +56,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(theater, { status: 201 });
   } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Something went wrong on our end. Please try again in a moment." }, { status: 500 });
   }
 }
