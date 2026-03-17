@@ -4,9 +4,9 @@ services:
   - name: web
     github:
       repo: johnhowrey/theatre-art-saas
-      branch: claude/setup-project-1vG2L
+      branch: main
       deploy_on_push: true
-    build_command: npx prisma generate && npm run build
+    build_command: npm install && npx prisma generate && npm run build
     run_command: npm start
     environment_slug: node-js
     instance_count: 1
@@ -19,12 +19,12 @@ services:
       - key: AUTH_SECRET
         scope: RUN_AND_BUILD_TIME
         type: SECRET
-        value: "change-me-to-a-real-secret"
+        value: "${AUTH_SECRET}"
       - key: NEXT_PUBLIC_APP_URL
         scope: RUN_AND_BUILD_TIME
         value: "${APP_URL}"
 databases:
   - name: db
     engine: PG
-    production: false
+    production: true
     version: "16"

@@ -1,8 +1,13 @@
 #!/bin/bash
 # Deploy Theatre Art SaaS to DigitalOcean App Platform
 # Run this from your local machine: bash deploy.sh
+#
+# Required env vars:
+#   DIGITALOCEAN_API_KEY - your DO API key
+#   AUTH_SECRET          - a random secret for NextAuth (generate with: openssl rand -base64 32)
 
 API_KEY="${DIGITALOCEAN_API_KEY:?Set DIGITALOCEAN_API_KEY env var before running}"
+SECRET="${AUTH_SECRET:?Set AUTH_SECRET env var before running (openssl rand -base64 32)}"
 
 curl -X POST https://api.digitalocean.com/v2/apps \
   -H "Authorization: Bearer $API_KEY" \
@@ -16,10 +21,10 @@ curl -X POST https://api.digitalocean.com/v2/apps \
         "name": "web",
         "github": {
           "repo": "johnhowrey/theatre-art-saas",
-          "branch": "claude/setup-project-1vG2L",
+          "branch": "main",
           "deploy_on_push": true
         },
-        "build_command": "npx prisma generate && npm run build",
+        "build_command": "npm install && npx prisma generate && npm run build",
         "run_command": "npm start",
         "environment_slug": "node-js",
         "instance_count": 1,
@@ -35,7 +40,7 @@ curl -X POST https://api.digitalocean.com/v2/apps \
             "key": "AUTH_SECRET",
             "scope": "RUN_AND_BUILD_TIME",
             "type": "SECRET",
-            "value": "a3kF9mPxwQ7nR2vL8jT5"
+            "value": "'"$SECRET"'"
           },
           {
             "key": "NEXT_PUBLIC_APP_URL",
@@ -49,7 +54,7 @@ curl -X POST https://api.digitalocean.com/v2/apps \
       {
         "name": "db",
         "engine": "PG",
-        "production": false,
+        "production": true,
         "version": "16"
       }
     ]

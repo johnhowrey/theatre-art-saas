@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMultiStepForm } from "@/hooks/use-multi-step-form";
+import { useTheater } from "@/hooks/use-theater";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,9 +38,11 @@ interface ShowData {
 
 export function ShowWizard() {
   const router = useRouter();
+  const { theater, isLoading: theaterLoading } = useTheater();
   const { currentStep, totalSteps, progress, isFirstStep, isLastStep, goToNext, goToPrev } =
     useMultiStepForm(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [data, setData] = useState<ShowData>({
     title: "",
@@ -81,14 +84,19 @@ export function ShowWizard() {
   }
 
   async function handleSubmit() {
+    if (!theater) {
+      setSubmitError("No theater found. Please complete onboarding first.");
+      return;
+    }
     setIsSubmitting(true);
-    // TODO: Replace with actual theaterId from user context
+    setSubmitError(null);
+
     const res = await fetch("/api/shows", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...data,
-        theaterId: "placeholder",
+        theaterId: theater.id,
         openingDate: data.openingDate ? new Date(data.openingDate).toISOString() : undefined,
         closingDate: data.closingDate ? new Date(data.closingDate).toISOString() : undefined,
       }),
@@ -99,8 +107,32 @@ export function ShowWizard() {
       router.push(`/shows/${show.id}`);
       router.refresh();
     } else {
+      const err = await res.json().catch(() => null);
+      setSubmitError(err?.error ?? "Failed to create show. Please try again.");
       setIsSubmitting(false);
     }
+  }
+
+  if (theaterLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!theater) {
+    return (
+      <div className="mx-auto max-w-md text-center py-24">
+        <h2 className="text-xl font-semibold">Set Up Your Theater First</h2>
+        <p className="mt-2 text-muted-foreground">
+          You need to complete onboarding before creating a show.
+        </p>
+        <Button className="mt-4" onClick={() => router.push("/onboarding")}>
+          Complete Setup
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -357,6 +389,12 @@ export function ShowWizard() {
             </div>
           )}
         </CardContent>
+
+        {submitError && (
+          <div className="mx-6 mb-2 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {submitError}
+          </div>
+        )}
 
         <CardFooter className="flex justify-between">
           <Button variant="outline" onClick={goToPrev} disabled={isFirstStep}>
